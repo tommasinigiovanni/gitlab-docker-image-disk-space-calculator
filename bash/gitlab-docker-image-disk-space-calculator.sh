@@ -125,7 +125,7 @@ check_dependencies
 
 # Initialize output files
 if [ "$OUTPUT_MODE" = "csv" ]; then
-  echo "Group,Project,ProjectID,RepoID,Tag,SizeBytes,SizeMB" > "$OUTPUT_FILE"
+  echo "Group,Project,ProjectID,RepoID,Tag,SizeBytes,SizeMB,CreatedAt" > "$OUTPUT_FILE"
 elif [ "$OUTPUT_MODE" = "pdf" ]; then
   LOGFILE=$(mktemp)
   if [ $? -ne 0 ]; then
@@ -245,12 +245,15 @@ while :; do
         SIZE=$(echo "$INFO" | jq '.total_size')
         [ "$SIZE" == "null" ] && continue
         MB=$(echo "scale=2; $SIZE / 1024 / 1024" | bc)
+        CREATED_AT=$(echo "$INFO" | jq -r '.created_at')
+        # Convert UTC timestamp to local time
+        CREATED_AT_LOCAL=$(date -d "$CREATED_AT" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || date -j -f '%Y-%m-%dT%H:%M:%S.000Z' "$CREATED_AT" '+%Y-%m-%d %H:%M:%S %Z' 2>/dev/null || echo "$CREATED_AT")
         psize=$((psize + SIZE))
         TOTAL_SIZE=$((TOTAL_SIZE + SIZE))
         TOTAL_TAGS=$((TOTAL_TAGS + 1))
 
-        log "    🏷️ $tag - $MB MB ($SIZE bytes)"
-        [ "$OUTPUT_MODE" = "csv" ] && write_output "$group,$pname,$pid,$j,$tag,$SIZE,$MB"
+        log "    🏷️ $tag - $MB MB ($SIZE bytes) - Created: $CREATED_AT_LOCAL"
+        [ "$OUTPUT_MODE" = "csv" ] && write_output "$group,$pname,$pid,$j,$tag,$SIZE,$MB,$CREATED_AT"
       done
     done
     echo -e "$psize\t$group/$pname ($pid)" >> "$TMP_SIZE_FILE"
